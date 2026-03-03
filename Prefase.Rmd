@@ -1,0 +1,28 @@
+---
+title: "PREFASE"
+author: "Brayan Ortega & Dylan Ariza"
+date: "2026-03-03"
+output: pdf_document
+---
+
+## 1. Definición del problema
+
+
+
+## 2. Descripción del dataset
+
+## 3. Análisis Exploratorio de Datos (EDA) Básico
+
+### 3.1. Carga y visualización general de los datos
+
+### 3.2. Estadísticas básicas
+
+### 3.3. Detección de valores faltantes
+
+## 4. Revisión bibliográfica
+
+## 5. Plan de trabajo
+
+## 6. Expectativas y retos
+
+## 7. Conclusión preliminar
