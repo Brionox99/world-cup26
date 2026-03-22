@@ -1,0 +1,232 @@
+---
+title: "PREFASE"
+author: "Brayan Ortega & Dylan Ariza"
+date: "2026-03-03"
+output: pdf_document
+---
+
+# 1. Definición del problema
+
+El reto consiste en aplicar Minería de Datos para identificar, dentro de las plantillas oficiales de la Copa Mundial de la FIFA 2026, a aquellos sujetos que se comportan estadísticamente como "estrellas" (jugadores élite) pero que aún poseen un valor de mercado bajo o un estatus menor. Se busca descubrir talentos infravalorados basándose en una comparación objetiva de rendimiento multidimensional frente a figuras consagradas.
+
+## *Justificación*
+
+En un torneo de tan corta duración y alta visibilidad, las decisiones de fichaje se basan a menudo en la intuición. Este proyecto aporta un rigor técnico mediante la Distancia Euclidiana entre puntos de datos para justificar qué jugadores son las verdaderas "revelaciones estadísticas" del torneo.
+
+## *Hipótesis*
+
+#### H1
+
+Mediante un modelo de clasificación supervisada entrenado con datos históricos, es posible predecir qué jugadores de la cita de 2026 tendrán un desempeño significativamente superior al esperado.
+
+#### H2
+
+Las variables de progresión (minutos jugados, incremento de estadísticas anuales) serán más determinantes para identificar estos perfiles en el Mundial que variables demográficas como la edad o nacionalidad.
+
+# 2. Descripción del dataset (Enfoque Mundial 2026)
+
+## *Nombre y fuente*
+
+Se utilizarán datos recolectados de plataformas como Kaggle ("FC 26 Player Data"), SoFIFA y FBref (datos estadísticos de fútbol), enfocándose en las estadísticas de las eliminatorias y torneos previos recientes.
+
+## *Selección y filtrado (Punto Crítico)*
+
+Una decisión de ingeniería vital será filtrar el dataset global para quedarse únicamente con los jugadores que participarán en el Mundial o que jugaron las eliminatorias y/o el mundial pasado.
+
+## *Criterio de Inclusión*
+
+Se debe definir un umbral mínimo de "Minutos Jugados" (ej. \>500 minutos) para evitar que jugadores con participaciones fugaces tengan estadísticas infladas que engañen a los algoritmos.
+
+## *Variables clave y significado*
+
+El dataset cuenta con 110 variables, entre las más relevantes nos encontramos con.
+
+#### Dimensiones Demográficas y de Control (Base para H2)
+
+Estas variables se utilizarán para contrastar la hipótesis H2, que afirma que la progresión es más predictiva que los datos biográficos.
+
+*Identificación*: short_name, long_name, player_id. Demografía: age (edad), dob (fecha de nacimiento), nationality_name (nacionalidad).
+
+*Atributos Físicos*: height_cm (altura), weight_kg (peso), body_type (tipo de cuerpo).
+
+*Significado*: Permiten segmentar a los jugadores por madurez y origen geográfico para el Mundial
+
+#### Variables de Negocio y Estatus (Identificación de "Infravalorados")
+
+Cruciales para definir quién es una "revelación" en el contexto de tu problema.
+
+*Financieras*: value_eur (valor de mercado), wage_eur (salario), release_clause_eur (cláusula de rescisión).
+
+*Prestigio*: international_reputation (reputación), overall (calificación actual), potential (potencial esperado).
+
+*Significado*: Si un jugador tiene un overall alto o un rendimiento de élite pero un value_eur bajo, el modelo de Clasificación Supervisada (H1) lo etiquetará como "Jugador Revelación".
+
+#### Variables de Progresión y Versión (Núcleo de H2)
+
+Para validar la H2, estas variables son las más importantes del dataset.
+
+*Temporales*: fifa_version, fifa_update, fifa_update_date.
+
+*Significado*: Aunque el dataset es una foto fija, estas columnas permiten usar la API de SoFIFA para comparar la versión actual con la anterior y calcular el "incremento anual" de estadísticas, que es la variable de progresión por excelencia.
+
+#### Variables de Rendimiento Técnico y Físico (Atributos Minables)
+
+Estas son las que alimentarán tus algoritmos (Random Forest, K-Means, SVM) para encontrar patrones de "estrellas".
+
+*Habilidades Globales*: pace (ritmo), shooting (tiro), passing (pase), dribbling (regate), defending (defensa), physic (físico).
+
+*Detalles de Acción*: attacking_finishing (finalización), skill_ball_control (control), movement_reactions (reacciones), mentality_vision (visión), power_stamina (resistencia).
+
+*Significado*: El modelo buscará qué combinación de estos atributos define a un jugador de élite en el Mundial.
+
+#### Variables de Posición y Especialización (Feature Selection)
+
+Fundamentales para la fase de Selección de Características del KDD.
+
+*Posición General*: player_positions, nation_position (posición en la selección).
+
+*Estatus por Zona*: Las variables finales como ls, st (delanteros), cm, cam (mediocampistas), cb, rb (defensas) y gk (porteros).
+
+*Significado*: No se puede evaluar a un defensa y a un delantero con el mismo criterio; estas variables permiten normalizar el rendimiento según el rol en el campo.
+
+## *Identificación de posibles problemas iniciales en los datos*
+
+Tras una inspección preliminar del dataset de jugadores para el Mundial 2026, se identifican los siguientes desafíos técnicos.
+
+#### Valores Faltantes (NAs)
+
+Se detecta la ausencia de datos en variables críticas como el valor de mercado (value_eur) o estadísticas técnicas específicas en jugadores de ligas menos monitoreadas. Estos deben ser tratados mediante omisión o imputación para no invalidar el modelo.
+
+#### Ruido y Errores de Captura
+
+Presencia de datos técnicamente imposibles, como porcentajes de precisión superiores al 100% o caracteres especiales en columnas numéricas (ej. símbolos de moneda en salarios), lo que requiere una limpieza de tipos (casting).
+
+#### Valores Atípicos (Outliers)
+
+Jugadores con rendimientos extremos (ej. Mbappé o Messi) actúan como singularidades estadísticas que pueden distorsionar los centroides en el agrupamiento K-Means.
+
+#### Disparidad de Escalas (Punto Crítico)
+
+Existe una diferencia de magnitud masiva entre variables como "Goles" (rango 0-10) y "Valor en Euros" (millones). Es obligatorio aplicar normalización (scale()) para evitar que las variables con números más grandes dominen injustamente el modelo.
+
+#### Ausencia de Variable de Control
+
+La columna de minutos jugados no aparece en el dataset base. Es vital integrarla vía API de SoFIFA para filtrar sujetos con menos de 500 minutos y evitar que estadísticas "infladas" por participaciones breves generen falsos positivos en la identificación de revelaciones.
+
+# 3. Análisis Exploratorio de Datos (EDA) Básico
+
+## 3.1. Carga y visualización general de los datos
+
+*Carga de librerías necesarias*
+
+```{r}
+library(dplyr)
+library(tidyverse) # [3, 4]
+```
+
+#### Importación del dataset
+
+```{r}
+datos_futbol <- read.csv("FC26_20250921.csv", header = TRUE, sep = ",") # [5, 6]
+```
+
+#### Mostrar las primeras filas de los datos
+
+*Visualización de los primeros registros*
+
+```{r}
+head(datos_futbol) # [7, 8]
+```
+
+#### Identificar la cantidad de filas y columnas
+
+*Obtener dimensiones*
+
+```{r}
+dim(datos_futbol) # [9] [10] Filas (observaciones), [11] Columnas (variables)
+```
+
+## 3.2. Estadísticas básicas
+
+#### Verificar el tipo de variables
+
+Es fundamental identificar si R reconoce los atributos correctamente. Los atributos numéricos (como age o value_eur) contienen valores reales o enteros, mientras que los categóricos (como player_positions o nationality_name) definen grupos mutuamente excluyentes.
+
+*Inspección de la estructura y tipos de clase (Factor, num, int, chr)*
+
+```{r}
+str(datos_futbol) # [5]
+```
+
+*Verificación específica de una columna (ejemplo: Mes o Posición)*
+
+```{r}
+class(datos_futbol$potential) # [6]
+```
+
+#### Estadísticos de variables numéricas principales
+
+Para validar la hipótesis H2, nos enfocaremos en las medidas centrales (media, mediana) y de dispersión (desviación estándar) de las variables de rendimiento y estatus.
+
+-   Media y Mediana: La mediana es especialmente útil aquí, ya que es menos sensible a valores extremos (como el valor de mercado de superestrellas como Mbappé).
+
+-   Desviación Estándar: Indica qué tan disperso está el nivel de los jugadores respecto al promedio.
+
+*Resumen estadístico completo de variables clave*
+
+```{r}
+summary(datos_futbol[, c("age", "overall", "potential", "value_eur")]) # [7, 10]
+```
+
+*Cálculos manuales para precisión técnica*
+
+```{r}
+media_valor <- mean(datos_futbol$value_eur, na.rm = TRUE) # [7]
+mediana_overall <- median(datos_futbol$overall, na.rm = TRUE) # [7]
+desv_estandar_potencial <- sd(datos_futbol$potential, na.rm = TRUE) # [7]
+```
+
+#### Frecuencias de variables categóricas
+
+Esto nos permite conocer la representatividad de cada selección y posición en el dataset.
+
+*Cantidad de jugadores por Selección Nacional (Mundial 2026)*
+
+```{r}
+table(datos_futbol$nationality_name) # [11]
+```
+
+*Frecuencia porcentual de las posiciones en el campo*
+
+```{r}
+round(prop.table(table(datos_futbol$player_positions)) * 100, 1) # [12, 13]
+```
+
+Este análisis descriptivo es el paso previo obligatorio a la Normalización. Como las variables tienen escalas muy distintas (ej. age entre 16-40 y value_eur en millones), estos estadísticos justifican por qué después aplicaremos la función scale() para que todos los atributos tengan media 0 y desviación 1, evitando sesgos en el modelo de detección de revelaciones.
+
+## 3.3. Detección de valores faltantes
+
+En esta etapa se cuantifican los vacíos de información en el dataset para determinar la calidad de los datos de los jugadores previo a cualquier transformación.
+
+*Conteo de valores faltantes (NA) por columna*
+
+```{r}
+colSums(is.na(datos_futbol)) #
+```
+
+*Visualizar solo las columnas que tienen al menos un valor faltante*
+
+```{r}
+missing_counts <- colSums(is.na(datos_futbol)) #
+missing_counts[missing_counts > 0]
+```
+
+Este conteo es vital para decidir la estrategia de manejo de datos no disponibles en la siguiente fase. Por ejemplo, en variables críticas como value_eur o age, la existencia de NAs podría obligar al equipo a realizar una búsqueda externa vía la API de SoFIFA o a eliminar registros que no cumplan con el mínimo de información necesaria para validar las hipótesis H1 y H2.
+
+## 4. Revisión bibliográfica
+
+## 5. Plan de trabajo
+
+## 6. Expectativas y retos
+
+## 7. Conclusión preliminar
